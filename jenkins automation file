@@ -1,0 +1,52 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_USER = 'saisasmeer'
+    }
+
+    stages {
+        stage('cloning') {
+            steps {
+                git url: 'https://github.com/BSaiSameer/miniproject.git'
+            }
+        }
+
+        stage('login stage') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: '3a46a0db-f480-4dfa-9c1c-fd6ca1712b7c', 
+                    usernameVariable: 'DOCKER_USER', 
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh 'echo $DOCKER_PASS | sudo docker login -u $DOCKER_USER --password-stdin'
+                }
+            }
+        }
+
+        stage('building') {
+            steps {
+                // build from repo root (where Dockerfile should exist)
+                sh 'sudo docker build -t saisasmeer/miniproject:latest .'
+            }
+        }
+
+        stage('pushed') {
+            steps {
+                sh 'sudo docker push saisasmeer/miniproject:latest'
+            }
+        }
+
+        stage('deploy') {
+            steps {
+                // stop/remove old container if running, then deploy new one
+                sh '''
+                if [ $(sudo docker ps -aq -f name=mini) ]; then
+                    sudo docker rm -f mini
+                fi
+                sudo docker run -itd --name mini -p 45:80 saisasmeer/miniproject:latest
+                '''
+            }
+        }
+    }
+}
